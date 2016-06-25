@@ -1,6 +1,6 @@
-There is one main objective for this repository:
-	
-	Port Tails to arm platforms.
+Tools to port tails to arm
+==========================
+There is one main objective for this repository: Port Tails to arm platforms.	
 
 This GitHub project will contain any tools, scripts and documentations to setup and run a package build environment.
 But it won't never contain any Tails sources: For tails source code please see git repositories, more informations on https://tails.boum.org.
