@@ -13,8 +13,8 @@ Please note: this repository shouldn't/won't never contain any Tails sources: Fo
 How to set up the build debian environment? 
 ===========================================
 Basically there are some fundamental requirements:
-1) reproduceable build environment - once if you've compiled and built a package your environment has been changed: Some required packages have been installed, some settings have been made and so on. Finally your environment isn't "untouced" any more, isn't any more in a defined state. So we must be able to reset our build environment back into a defined state.
-2) a "multi platform" build platform - to build more or less generic packages, based on a quite abstract platform definition as well a "arm" (including armeabi, armhf, armv6-X ...) or "x86_64 or ... either we do this with qemu or crosscompiler toolchain.
+1) an reusable and reproducible arm build environment - reproducible in that sense: once if you've compiled and built a package your environment has been changed: Some required packages have been installed, some settings have been made and so on. Finally your environment isn't "untouced" any more, isn't any more in a defined state. So we must be able to reset our build environment back into a defined state.
+2) a "multi platform" arm build platform - to build more or less generic packages, based on a quite abstract platform definition as well a general "arm" (including armeabi, armhf, armv6-X ...) or propabely also "x86_64 or ... either we do this with qemu or a crosscompiler toolchain. 
 
 The first attemps I made, aimed to setup a crosscompiler platform. I failed due to missing arm support. Probabely this may have changed meanwhile.
 Anyhow, there is a another great idea from kytv, see http://killyourtv.i2p.xyz/howtos/sbuild+btrfs+schroot/.
