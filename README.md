@@ -1,9 +1,14 @@
 Tools to port tails to arm
 ==========================
-There is one main objective for this repository: Port Tails to arm platforms.	
+There is only one and main objective for this repository: Porting Tails to arm platforms (see https://labs.riseup.net/code/issues/10972).
 
-This GitHub project will contain any tools, scripts and documentations to setup and run a package build environment.
-But it won't never contain any Tails sources: For tails source code please see git repositories, more informations on https://tails.boum.org.
+This GitHub project is dedicated to contain any tools, scripts and documentations to help anybody to setup and run an arm build and an arm package build environment. This arm environment will not qualify as reproducible. All scripts and tools are a) to document and understand and b) to make it easier to set um this arm environment. Again: It is NOT intended to build up a reproducible build environment.
+
+If you like to contribute porting tails to arm, visit https://labs.riseup.net/code/issues/10972 and https://labs.riseup.net/code/issues/11677. Current state is still a cross compiling problem see http://wiki.qemu.org/Features/tcg-multithread (also https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=769983 and http://patches.linaro.org/patch/32473/), see also below.
+
+If you like to contribute to tails development in general, there is a description of the Tails dev and build environments (reproducible) on https://tails.boum.org/contribute/how/code/ and https://tails.boum.org/contribute/build/.
+
+Please note: this repository shouldn't/won't never contain any Tails sources: For Tails source code please see git repositories, more informations on https://tails.boum.org.
 
 How to set up the build debian environment? 
 ===========================================
@@ -38,6 +43,7 @@ An arm specific qemu problem
 If you run qemu to emulate an arm system, it's tiny code generator tcg may not work properly when running on a multi core / threaded hardware platform. For my understandig, tcg does not handle the VCPU's correctly and thus may crash when trying to assign machine code to the wrong VCPU - sometimes. 
 You may pin qemu to a single core single threaded, but this won't work for i.e. java (which build i2p). Java must run multithreaded, otherwise it won't crash but won't start issuing a message. 
 See:
+- basically http://wiki.qemu.org/Features/tcg-multithread (thanks to LABRADOR)
 - https://lists.gnu.org/archive/html/qemu-devel/2016-02/msg02651.html, 
 - https://lists.gnu.org/archive/html/qemu-devel/2016-02/msg03385.html
 - https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=769983 
