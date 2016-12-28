@@ -186,10 +186,13 @@ Thus, the first partition is named "firmware" (FAT) mounted to /boot/firmware, t
 1.) Building the debian armhf image and rpi2 boot image
 Sources
 	- hoedelmosers way (rasbian instead of debian)	
+	
 	https://github.com/andrius/build-raspbian-image
 	https://blog.kmp.or.at/build-your-own-raspberry-pi-image/
 	#Open process but builds raspbian images from prebuild rasbian chroots. The efforts to adapt that stuff to debian seems to be not less/low.
+	
 	- https://github.com/drtyhlpr/rpi2-gen-image
+	
 	# Also open and strict debootstrap driven process.
 	# This is what I used to build an arm debian image for my rpi2
 	git clone https://github.com/drtyhlpr/rpi23-gen-image.git
@@ -201,6 +204,7 @@ Sources
 u-boot must be loaded by bootloader.bin instead of kernel7.image. First I had to set up a cross compiling environment. With Debian jessie there is no gcc-arm-linux-gnueabihf package (comes with stretch ...), so I followed Debians proposals/documentation https://wiki.debian.org/CrossToolchains#For_jessie_.28Debian_8.29 for "For jessie (Debian 8)". To build the u-boot loader I additionally installed
 - device-tree-compiler (see apt)
 - u-boot-tools (also see apt, contains mkimage)
+
 With that toolchain I was able to cross compile the armhf u-boot loader on a non-arm platform, see https://blog.night-shade.org.uk/2015/05/booting-a-raspberry-pi2-with-u-boot-and-hyp-enabled/
 	
 	export ARCH=arm
@@ -248,7 +252,7 @@ The u-boot.bin (compiled) and boot.scr (mkimage) both must be copied into the rp
 	vi config.txt
 		kernel=u-boot.bin
 	# unmount and release
-    umount /dev/loopX
+	umount /dev/loopX
 	losetup -d /dev/loopX
 
 "burn" to an usb stick
