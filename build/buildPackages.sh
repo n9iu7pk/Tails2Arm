@@ -3,6 +3,10 @@
 # 2015-2016 n9iu7pk@posteo.net
 # License: Free and unlimited use for everyone for ever except in case of crime
 #          against Human Beeing and Human Rights.
+# 20161227 n9iu7pk@posteo.net
+#		   Bugfixes and more comments:
+#          - CLEAN removes chroot.d/build.conf
+#		   - Identification of schroots
 
 # Perform package build inside of a schroot environment
 #
@@ -83,7 +87,7 @@ function forceDepends() {
 	dsc=$(basename ${url})
 	pkg=$(basename $(dirname ${url}))
 	arv=$(basename $(dirname $(dirname ${url})))
-	for pkg in $(grep "Build-Depends:" "dists/${dist}-armhf/pool/main/${arv}/${pkg}/${dsc}" | cut -d':' -f2-99 | awk 'BEGIN { FS = "," } { split($0,pkg,","); for (f in pkg) {split($f, list, " "); split(list[1],word,"|"); print word[1]; }  }'); do
+	for pkg in $(grep "Build-Depends:" "dists/${dist}/pool/main/${arv}/${pkg}/${dsc}" | cut -d':' -f2-99 | awk 'BEGIN { FS = "," } { split($0,pkg,","); for (f in pkg) {split($f, list, " "); split(list[1],word,"|"); print word[1]; }  }'); do
 		pkg=$(echo $pkg | cut -d'#' -f1 | cut -d'[' -f1)
 		if [ "${pkg}" != "" ]; then
 			schroot -c build --directory=/root -- apt list --installed 2>&1 | grep "${pkg}" | grep -i "install" >/dev/null 2>&1
@@ -120,15 +124,18 @@ function forceReload() {
 	dsc=$(basename ${url})
 	pkg=$(basename $(dirname ${url}))
 	arv=$(basename $(dirname $(dirname ${url})))
-	mkdir -p -m 777 dists/${dist}-armhf/pool/main/${arv}/${pkg}
+	mkdir -p -m 777 dists/${dist}/pool/main/${arv}/${pkg}
 	log "************************************************************"
-	log "cd \"dists/${dist}-armhf/pool/main/${arv}/${pkg}\""
-	cd "dists/${dist}-armhf/pool/main/${arv}/${pkg}"
+	log "cd \"dists/${dist}/pool/main/${arv}/${pkg}\""
+	cd "dists/${dist}/pool/main/${arv}/${pkg}"
 	log "dget \"${url}\""
 	dget "${url}"
 	cd "${cwd}"
 }
 
+################################################################################
+# Usage
+################################################################################
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-?" ] || [ "$1" = "--help" ]; then
 	echo "usage:" 1>&2
 	echo "$0 END | CLEAN | RECOVER" 1>&2
@@ -146,7 +153,11 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-?" ] || [ "$1" = "--help" ]; th
 fi
 
 # Dev environment base is where $0 is located
-cd "$(readlink -f "$0")"
+cd "$(dirname "$(readlink -f "$0")")"
+
+################################################################################
+# END all schroot sessions
+################################################################################
 if [ "$1" = "END" ]; then
 	# Find build snapshots ... 
 	for s in $(ls ./btrsnap/snapshots); do
@@ -157,6 +168,10 @@ if [ "$1" = "END" ]; then
 	done
 	exit 0
 fi
+
+################################################################################
+# RECOVER all schroot sessions
+################################################################################
 if [ "$1" = "RECOVER" ]; then
 	# Find build snapshots ... 
 	for s in $(ls ./btrsnap/snapshots); do
@@ -167,6 +182,10 @@ if [ "$1" = "RECOVER" ]; then
 	done
 	exit 0
 fi
+
+################################################################################
+# CLEAN the "work" schroot "build"
+################################################################################
 if [ "$1" = "CLEAN" ]; then
 	for s in $(ls ./btrsnap/snapshots/); do 
 		log "end session $s"
@@ -175,26 +194,37 @@ if [ "$1" = "CLEAN" ]; then
 	if [ -d "build" ]; then
 		log "btrfs subvolume delete build"
 		btrfs subvolume delete build
+		log "rm -rf /etc/schroot/chroot.d/build.conf"
+		rm -rf /etc/schroot/chroot.d/build.conf
 	fi
 	exit 0
 fi
 
-export dist="$(ls -at | grep jessie | tail -1)"
+# Check, if pwd contains a directory that's named like *${dist}* 
+# That indicates a schroot/btrfs volume
+export dist="jessie"
+export schroot="$(basename "$(find . -maxdepth 1 -type d | grep ${dist} | tail -1)")"
 if [ "$1" != "" ]; then
-	export dist="$1"
-	shift
+	if (find . -maxdepth 1 -type d | grep $1 >/dev/null); then
+		export dist="$1"
+		export schroot="$(basename "$(find . -maxdepth 1 -type d | grep ${dist} | tail -1)")"
+		shift
+	fi
 fi
-[ -f "${dist}" ]
-abortOnFailure "$?" "Distribution '${dist}' not found."
+[ "${schroot}" != "" ] && [ -d "${schroot}" ]
+abortOnFailure "$?" "No schroot found for distribution '${dist}'."
 
+# If there's a build directory, check if it is the proper debian version 
+# Try to schroot and read /root/debver.txt
 if [ -d "build" ]; then
 	export ver=$(schroot -c build --directory=/root -- cat debver.txt)
-	if [ "${dist}" != "${ver}" ]; then
-		abortOnFailure 1 "build = '${ver}'; Please call first $0 CLEAN to build '${dist}'."
+	if [ "${schroot}" != "${ver}" ]; then
+		abortOnFailure 1 "build = '${ver}'; Should be '${schroot}', please call first $0 CLEAN to build '${dist}'."
 	fi
 fi
 log "dist = ${dist}"
 
+# File with package URLs to build 
 export PKGBUILD="buildPackages.txt"
 if [ "$1" != "" ]; then
 	export PKGBUILD="$1"
@@ -202,9 +232,11 @@ if [ "$1" != "" ]; then
 fi
 log "PKGBUILD = ${PKGBUILD}"
 
+# Which packages shall be build (SCOPE and PKGLIST)?
+# How should they be build (MODE)
 export PKGLIST=$(grep -v "#" ${PKGBUILD})
-export MODE="NONE"
 export SCOPE="ALL"
+export MODE="NONE"
 if [ "$1" != "" ]; then
 	if [ "$1" != "ALL" ]; then
 		export PKGLIST=$(grep -v "#" ${PKGBUILD} | grep $1)
@@ -221,6 +253,8 @@ else
 	log "PKGLIST = ${PKGLIST}"
 fi
 log "SCOPE = ${SCOPE}"
+
+# Overrule how to build (MODE)
 if [ "$1" != "" ]; then
 	export MODE="$1"
 	shift
@@ -234,20 +268,41 @@ if [ ! -d "build" ]; then
 	log "btrfs subvolume create \"build\""
 	btrfs subvolume create "build"
 	abortOnFailure $? "btrfs subvolume create \"build\""
-	log "rsync -a ${dist}-armhf/* build/"
-	rsync -a ${dist}-armhf/* build/
-	abortOnFailure $? "rsync -a ${dist}-armhf/* build/"
+	log "rsync -a ${dist}/* build/"
+	rsync -a ${schroot}/* build/
+	abortOnFailure $? "rsync -a ${schroot}/* build/"
 	################################################################################
-	# 2. Determine missing packages and install
+	# 2a Create schroot file
+	################################################################################
+	cat >/etc/schroot/chroot.d/build.conf<<EOCONF
+[build-sbuild]
+description=Debian build (${schroot})
+btrfs-source-subvolume=$(pwd)/build
+type=btrfs-snapshot
+btrfs-snapshot-directory=$(pwd)/btrsnap/snapshots
+users=root,user
+groups=root,user
+root-users=root
+root-groups=root
+source-users=root,user
+source-root-users=root
+source-root-groups=root
+aliases=build
+profile=minimal
+# uncomment the next line if you installed eatmydata in the chroot
+#command-prefix=eatmydata
+EOCONF
+	################################################################################
+	# 2b Determine missing packages and install
 	#    SOURCE !!!
 	################################################################################
 	log "apt-get update und apt-get upgrade"
 	export PKG="asciidoc lsb-release dh-autoreconf"
 	schroot -c source:build --directory=/root -- apt-get update
-	schroot -c source:build --directory=/root -- apt-get -y upgrade
+	schroot -c source:build --directory=/root -- apt-get --force-yes -y upgrade
 	log "apt-get -y install \"${PKG}\""
-	schroot -c source:build --directory=/root -- apt-get -y install ${PKG}
-	abortOnFailure $? "apt-get -y install \"${PKG}\""
+	schroot -c source:build --directory=/root -- apt-get --force-yes -y install ${PKG}
+	abortOnFailure $? "apt-get --force-yes -y install \"${PKG}\""
 	log ".gnupg kopieren"
 	schroot -c source:build --directory=/root -- mkdir -m 700 .gnupg
 	cp /root/.gnupg/* build/root/.gnupg/
@@ -268,8 +323,8 @@ for URL in ${PKGLIST}; do
 	export dsc=$(basename ${URL})
 	export pkg=$(basename $(dirname ${URL}))
 	export arv=$(basename $(dirname $(dirname ${URL})))
-	mkdir -p -m 777 dists/${dist}-armhf/pool/main/${arv}/${pkg}
-	if [ $(ls dists/${dist}-armhf/pool/main/${arv}/${pkg}/*.deb 2>/dev/null | wc -l) -gt 0 ]; then
+	mkdir -p -m 777 dists/${dist}/pool/main/${arv}/${pkg}
+	if [ $(ls dists/${dist}/pool/main/${arv}/${pkg}/*.deb 2>/dev/null | wc -l) -gt 0 ]; then
 		log "ALREADY BUILT: ${arv}/${pkg}"
 		continue
 	fi
@@ -282,8 +337,8 @@ for URL in ${PKGLIST}; do
 	fi
 	export sessid=$(schroot --begin-session -c build --directory=/root) 
 	log "schroot --run-session --directory=/root -c ${sessid}"
-	if [ -f "dists/${dist}-armhf/pool/main/${arv}/${pkg}/${dsc}" ]; then
-		cp dists/${dist}-armhf/pool/main/${arv}/${pkg}/* ./btrsnap/snapshots/${sessid}/root
+	if [ -f "dists/${dist}/pool/main/${arv}/${pkg}/${dsc}" ]; then
+		cp dists/${dist}/pool/main/${arv}/${pkg}/* ./btrsnap/snapshots/${sessid}/root
 		rm ./btrsnap/snapshots/${sessid}/root/*.log
 		rm ./btrsnap/snapshots/${sessid}/root/*.txt
 		mv ./btrsnap/snapshots/${sessid}/root/.gnupg/trustdb.gpg ./btrsnap/snapshots/${sessid}/root/.gnupg/trustedkeys.gpg
@@ -292,14 +347,14 @@ for URL in ${PKGLIST}; do
 
 	doSchrootBuild "${URL}" "${dsc}" "${sessid}" 2>&1 | tee -a "${pkg}.log"
 
-	cp "${pkg}.log" dists/${dist}-armhf/pool/main/${arv}/${pkg}/
+	cp "${pkg}.log" dists/${dist}/pool/main/${arv}/${pkg}/
 	rm -rf "${pkg}.log"
-	rsync -a ./btrsnap/snapshots/${sessid}/root/* dists/${dist}-armhf/pool/main/${arv}/${pkg}/
+	rsync -a ./btrsnap/snapshots/${sessid}/root/* dists/${dist}/pool/main/${arv}/${pkg}/
 	if [ $(ls ./btrsnap/snapshots/${sessid}/root/*.deb 2>/dev/null | wc -l) -gt 0 ]; then
-		log "SUCCESS: Build package '${pkg}' for '${dist}-armhf' -> dists/${dist}-armhf/pool/main/${arv}/${pkg}/$(basename ${deb})"
+		log "SUCCESS: Build package '${pkg}' for '${dist}' -> dists/${dist}/pool/main/${arv}/${pkg}/$(basename ${deb})"
 	else
-		log "Failed to build ${pkg}, see ${pkg}.log" > "dists/${dist}-armhf/pool/main/${arv}/${pkg}/FAILED.deb"
-		log "ABORT(99): Build package '${pkg}' for '${dist}-armhf'"
+		log "Failed to build ${pkg}, see ${pkg}.log" > "dists/${dist}/pool/main/${arv}/${pkg}/FAILED.deb"
+		log "ABORT(99): Build package '${pkg}' for '${dist}'"
 	fi
 	log "END SESSION: schroot ${dist} ${sessid}"
 	schroot --end-session -c ${sessid}
