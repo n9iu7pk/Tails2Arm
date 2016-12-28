@@ -168,3 +168,89 @@ buildPackages.sh - build packages
 		MODE		NONE (default) = "normal" operation, no clean / rebuild
 		                REBUILD = clen up prior builds, reload package and rebuild
 
+Build an arm boot image
+=======================
+NO the raspberry PI 2 or 3 are NOT the target platforms. But they are arm platforms to learn, to try out anything and to test. And - there's no BIOS flashed as firmware on any chip, it is software on the boot medium which can be more easily checked before beeing used than flashed firmware inside of a chip.
+Additionally I decided to go the u-boot way for some reasons:
+- abstract the hardware driven 1st level bootloader from a OS loader (which is the u-boot)
+- if u-boot is not the propper OS loader, it can be changed more easily than the 1st level loader
+- source code is available to learn how that loader works
+
+u-boot may - !!! but must not !!! - be the final choice, it is just a point I started building bootable images for my rpi platform.
+
+Note also, to boot,
+- debian needs a non-FAT "boot" partition
+- and rpi2 needs a FAT partition as first partition
+Thus, the first partition is named "firmware" (FAT) mounted to /boot/firmware, the second "boot" (efsX) mounted to /boot.
+
+1.) Building the debian armhf image and rpi2 boot image
+Sources
+	- hoedelmosers way (rasbian instead of debian)	
+	https://github.com/andrius/build-raspbian-image
+	https://blog.kmp.or.at/build-your-own-raspberry-pi-image/
+	#Open process but builds raspbian images from prebuild rasbian chroots. The efforts to adapt that stuff to debian seems to be not less/low.
+	- https://github.com/drtyhlpr/rpi2-gen-image
+    # Also open and strict debootstrap driven process.
+	# This is what I used to build an arm debian image for my rpi2
+	git clone https://github.com/drtyhlpr/rpi23-gen-image.git
+	cd rpi2-gen-image
+	./rpi23-gen-image.sh
+
+2.) Switching to u-boot
+
+u-boot must be loaded by bootloader.bin instead of kernel7.image. First I had to set up a cross compiling environment. With Debian jessie there is no gcc-arm-linux-gnueabihf package (comes with stretch ...), so I followed Debians proposals/documentation https://wiki.debian.org/CrossToolchains#For_jessie_.28Debian_8.29 for "For jessie (Debian 8)". To build the u-boot loader I additionally installed
+- device-tree-compiler (see apt)
+- u-boot-tools (also see apt, contains mkimage)
+With that toolchain I was able to cross compile the armhf u-boot loader on a non-arm platform, see https://blog.night-shade.org.uk/2015/05/booting-a-raspberry-pi2-with-u-boot-and-hyp-enabled/
+	
+	export ARCH=arm
+	export CROSS_COMPILE=arm-linux-gnueabihf-
+	git clone git://git.denx.de/u-boot.git
+	cd u-boot
+	make rpi_2_defconfig
+	make all
+	
+I decided to start the work with a "script" u-boot image (see also https://blog.night-shade.org.uk/2015/05/booting-a-raspberry-pi2-with-u-boot-and-hyp-enabled/). Note: mkimage can be executed on a non-arm platform, it does not matter to which path boot.scr will be written. Anyhow, the gererated boot.scr must be finally placed (or copied) into the arm boot partition. 
+
+I skipped the chapter "serial console" with manual booting debian. The boot.scr script noted above I copied 1:1 from the documentation into a file /tmp/boot_arm_deb.script, there's no magic (except the RPI2 machine id):
+
+	# Tell Linux that it is booting on a Raspberry Pi2
+	setenv machid 0x00000c42
+	# Set the kernel boot command line
+	setenv bootargs "earlyprintk console=tty0 console=ttyAMA0 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait noinitrd"
+	# Save these changes to u-boot's environment
+	saveenv
+	# Load the existing Linux kernel into RAM
+	fatload mmc 0:1 ${kernel_addr_r} kernel7.img
+	# Boot the kernel we have just loaded
+	bootz ${kernel_addr_r}
+
+The mkimage command I executed on the non-arm platform 
+	
+	mkimage -A arm -O linux -T script -C none -a 0x00000000 -e 0x00000000 -n "RPi2 U-Boot Script" -d /tmp/boot_arm_deb.script ./boot.scr
+
+The u-boot.bin (compiled) and boot.scr (mkimage) both must be copied into the rpi2's boot section (firmware) and finally the config.txt of the rpi2's boot section must be modified (u-boot.bin instead of kernel7.img)
+	
+	parted <./rpi23-gen-image.sh image>
+	> unit B
+    Units as byte
+	> print
+	prints the partitions and their start position in byte
+	> quit
+	losetup -o <.first partition start pos in byte> -f <./rpi23-gen-image.sh image> 
+	losetup -a 
+	# search your image /dev/loopX device; probably the last
+	# and mount it
+	mount /dev/loopX <.any mount pont>
+	# now access the mounted rpi2's boot partition
+	cp u-boot.bin <.any mount pont>
+	cp boot.scr <.any mount pont> 
+	vi config.txt
+		kernel=u-boot.bin
+	# unmount and release
+    umount /dev/loopX
+	losetup -d /dev/loopX
+
+"burn" to an usb stick
+
+	dd if=<./rpi23-gen-image.sh image> of=/dev/<.usb device> bs=4M; sync
