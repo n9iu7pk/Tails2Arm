@@ -190,7 +190,7 @@ Sources
 	https://blog.kmp.or.at/build-your-own-raspberry-pi-image/
 	#Open process but builds raspbian images from prebuild rasbian chroots. The efforts to adapt that stuff to debian seems to be not less/low.
 	- https://github.com/drtyhlpr/rpi2-gen-image
-    # Also open and strict debootstrap driven process.
+	# Also open and strict debootstrap driven process.
 	# This is what I used to build an arm debian image for my rpi2
 	git clone https://github.com/drtyhlpr/rpi23-gen-image.git
 	cd rpi2-gen-image
