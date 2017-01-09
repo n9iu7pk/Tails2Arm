@@ -204,7 +204,8 @@ Sources
 u-boot must be loaded by bootloader.bin instead of kernel7.image. First I had to set up a cross compiling environment. With Debian jessie there is no gcc-arm-linux-gnueabihf package (comes with stretch ...), so I followed Debians proposals/documentation https://wiki.debian.org/CrossToolchains#For_jessie_.28Debian_8.29 for "For jessie (Debian 8)". To build the u-boot loader I additionally installed
 - device-tree-compiler (see apt)
 - u-boot-tools (also see apt, contains mkimage)
-Note: If you've set up Debian backports or anything else, you have to disable that apt sources temporarely. Most important is the following command, note that this may influence your dev environment also (example for jessie; may be added also to apt.conf):
+
+*Note*: If you've set up Debian backports or anything else, you have to disable that apt sources temporarely. Most important is the following command, note that this may influence your dev environment also (example for jessie; may be added also to apt.conf):
 
 	echo "APT::Default-Release \"jessie\";" > /etc/apt/apt.conf.d/20defaultrelease
 
